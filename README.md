@@ -1,6 +1,6 @@
 # VPN SaaS Architecture
 
-System-level architecture case study for NKVPN: a VPN SaaS platform with a user cabinet, admin panel, BFF API, subscription API, Telegram support bots, and VPN provider integration boundaries.
+System-level architecture case study of a VPN SaaS platform built end-to-end by a founder/lead engineer, covering architecture decisions, failure scenarios, and production risks.
 
 This repository shows the system as a whole. The individual service repositories demonstrate implementation details, but this overview explains the architecture, trade-offs, operational risks, and my role as founder, lead engineer, and hands-on builder.
 
@@ -28,6 +28,20 @@ The system is composed of:
 - Added operational safety around privileged actions with RBAC, auditability, and provider isolation.
 - Designed the system around unreliable VPN provider APIs and lack of transactional guarantees.
 - Introduced repair and reconciliation mechanisms to handle inevitable state drift.
+- Built a system that can tolerate unreliable external providers without breaking user access as the default outcome.
+- Designed operational workflows where admin mistakes or partial failures do not immediately impact paying users.
+
+## System Constraints
+
+This system was built under real-world constraints:
+
+- no control over VPN provider reliability;
+- no distributed transactions across provider boundaries;
+- need to support real users with minimal support friction;
+- requirement to keep admin operations safe and auditable;
+- limited tolerance for subscription/access inconsistencies from a user perspective.
+
+These constraints shaped most architectural decisions.
 
 ## Reality of the System
 
@@ -64,6 +78,8 @@ My responsibilities included:
 - implementing support workflows across admin panel and Telegram bots;
 - choosing the stack, repository structure, and integration approach;
 - owning production-like risks around provider failures, support load, and unsafe admin operations.
+
+I was accountable for system behavior as a whole, not just individual services.
 
 ## System Diagram
 
@@ -180,6 +196,12 @@ Handling this required:
 - admin visibility into partial failures;
 - provider adapter isolation;
 - support tooling to resolve user issues quickly.
+
+Outcome:
+
+- user impact is minimized;
+- system recovers without manual intervention in most cases;
+- support has enough context to resolve edge cases quickly.
 
 ## Deep Dive: Subscription Consistency
 

@@ -2,13 +2,15 @@
 
 System-level architecture case study for NKVPN: a VPN SaaS platform with a user cabinet, admin panel, BFF API, subscription API, Telegram support bots, and VPN provider integration boundaries.
 
-This repository shows the system as a whole. The individual service repositories demonstrate implementation details, but this overview explains the architecture, trade-offs, operational risks, and my role as founder/architect.
+This repository shows the system as a whole. The individual service repositories demonstrate implementation details, but this overview explains the architecture, trade-offs, operational risks, and my role as founder, lead engineer, and hands-on builder.
 
 ## 30-Second Overview
 
 NKVPN is a VPN product where users need a simple experience: buy access, open the cabinet, connect devices, and get support when something breaks.
 
-Behind that simple UX is a distributed product system:
+Behind that simple UX is a distributed system that must handle unreliable external providers, multi-device access policies, real-time support workflows, and operational mistakes that can affect paying users.
+
+The system is composed of:
 
 - user-facing cabinet;
 - admin panel for operations;
@@ -24,6 +26,28 @@ Behind that simple UX is a distributed product system:
 - Enabled multi-device subscription management with explicit access policies.
 - Reduced support friction through Telegram-first workflows connected to the same ticket engine as the admin panel.
 - Added operational safety around privileged actions with RBAC, auditability, and provider isolation.
+- Designed the system around unreliable VPN provider APIs and lack of transactional guarantees.
+- Introduced repair and reconciliation mechanisms to handle inevitable state drift.
+
+## Reality of the System
+
+This system was designed and built as a real product, not as a theoretical architecture.
+
+It had to handle:
+
+- real users connecting from multiple devices;
+- support requests coming through Telegram in real time;
+- inconsistent behavior from VPN providers;
+- admin workflows where mistakes could affect paying users;
+- subscription state that could drift from external provider panels.
+
+This influenced multiple decisions:
+
+- avoiding tight coupling with provider APIs;
+- prioritizing safe retries and repair jobs over fake strict consistency;
+- building admin safety mechanisms early;
+- keeping provider credentials and privileged operations away from the browser;
+- making support workflows visible across Telegram bots and the admin panel.
 
 ## My Role
 
@@ -138,6 +162,24 @@ Solution: server-side RBAC, audit logs, confirmation flows, and no provider cred
 - Unsafe admin action affecting real subscriptions.
 
 Each scenario required explicit handling to avoid user-facing inconsistencies, support overload, or broken access for active users.
+
+## Example Failure Case
+
+A typical failure scenario:
+
+- user purchases or activates a subscription;
+- local subscription state is updated successfully;
+- VPN provider API times out during provisioning;
+- user expects access but provider state is not updated yet;
+- support receives a request while the system is in a partial-success state.
+
+Handling this required:
+
+- idempotent mutation design;
+- background reconciliation jobs;
+- admin visibility into partial failures;
+- provider adapter isolation;
+- support tooling to resolve user issues quickly.
 
 ## Deep Dive: Subscription Consistency
 

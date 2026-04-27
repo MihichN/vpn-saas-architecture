@@ -17,18 +17,29 @@ Behind that simple UX is a distributed product system:
 - Telegram support bots;
 - VPN panel/provider adapters.
 
+## Impact
+
+- Built the NKVPN platform from idea into a working product as founder and lead engineer.
+- Created a multi-service VPN SaaS architecture covering user flows, admin operations, provider sync, and support.
+- Enabled multi-device subscription management with explicit access policies.
+- Reduced support friction through Telegram-first workflows connected to the same ticket engine as the admin panel.
+- Added operational safety around privileged actions with RBAC, auditability, and provider isolation.
+
 ## My Role
 
-I am the founder of NKVPN and designed the platform architecture end-to-end.
+I built this system end-to-end as the founder and lead engineer.
+
+I was solely responsible for turning the product from idea into a working system: architecture, code, service boundaries, integrations, operational flows, and public-safe engineering documentation.
 
 My responsibilities included:
 
-- defining service boundaries between cabinet, admin, BFF, subscription API, and bots;
-- designing the subscription lifecycle and access policies;
-- choosing the stack and integration approach;
-- implementing key frontend/backend parts;
-- designing support workflows across web admin and Telegram bots;
-- creating public-safe documentation and showcase repositories.
+- designing the overall architecture and service decomposition;
+- implementing the core backend services and frontend applications;
+- integrating external VPN providers and handling unreliable APIs;
+- designing and building subscription lifecycle and policy logic;
+- implementing support workflows across admin panel and Telegram bots;
+- choosing the stack, repository structure, and integration approach;
+- owning production-like risks around provider failures, support load, and unsafe admin operations.
 
 ## System Diagram
 
@@ -116,6 +127,46 @@ Problem: admin actions can affect real users and infrastructure.
 
 Solution: server-side RBAC, audit logs, confirmation flows, and no provider credentials in the browser.
 
+## Failure Scenarios I Designed For
+
+- VPN provider API timeout during subscription activation.
+- Partial success where local state is updated but provider provisioning fails.
+- Duplicate subscription/device mutation requests.
+- Traffic sync delay causing incorrect user-facing limits.
+- Telegram bot and admin panel desynchronization in support tickets.
+- Provider panel returning inconsistent or stale state.
+- Unsafe admin action affecting real subscriptions.
+
+Each scenario required explicit handling to avoid user-facing inconsistencies, support overload, or broken access for active users.
+
+## Deep Dive: Subscription Consistency
+
+One of the hardest problems was keeping local subscription state consistent with external VPN providers.
+
+Challenges:
+
+- provider APIs can be unreliable or slow;
+- external panels do not give transactional guarantees;
+- local subscription state can drift from provider state;
+- repair jobs must not accidentally disable valid access;
+- support/admin tools need to understand what happened.
+
+Solution:
+
+- local policy layer acts as the source of truth for access decisions;
+- provider logic is isolated behind adapters;
+- mutations are designed to be safe to retry where possible;
+- background repair/cleanup jobs reconcile provider state;
+- admin tooling surfaces operational state instead of hiding failures.
+
+Trade-off:
+
+- the system accepts eventual consistency with explicit repair mechanisms instead of pretending strict distributed transactions exist.
+
+Result:
+
+- provider instability can be handled without coupling user-facing product logic directly to panel behavior.
+
 ## Trade-Offs
 
 | Decision | Benefit | Cost |
@@ -126,16 +177,24 @@ Solution: server-side RBAC, audit logs, confirmation flows, and no provider cred
 | Telegram support bots | Faster support UX | More operational surfaces |
 | Admin RBAC and audit logs | Safer operations | More upfront engineering |
 
-## Production Concerns
+## Production Risks
 
-- Internal API key management.
-- Provider credentials and panel cookies.
-- Traffic sync lag.
-- Repair jobs that are safe to re-run.
-- Audit logs for admin actions.
-- Support ticket SLA and routing.
-- Monitoring for provider latency and failed provisioning.
-- Incident playbooks for VPN node outages.
+Key risks in this system:
+
+- provider outages affecting active users;
+- delayed traffic sync leading to incorrect limits;
+- unsafe admin actions impacting real subscriptions;
+- support overload during infrastructure incidents;
+- internal API keys or provider credentials leaking across service boundaries.
+
+Mitigation included:
+
+- provider adapter isolation;
+- retry and repair jobs;
+- server-side RBAC;
+- audit logs for privileged actions;
+- shared support engine across web and Telegram channels;
+- monitoring for provider latency and failed provisioning.
 
 ## Approximate Scale Targets
 
